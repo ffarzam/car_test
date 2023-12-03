@@ -40,4 +40,48 @@ class AbstractTokenAuthentication(ABC, BaseAuthentication):
             raise custom_exception.InvalidTokenError
 
 
+class AccessTokenAuthentication(AbstractTokenAuthentication):
+    authentication_header_prefix = 'Token'
+    authentication_header_name = 'Authorization'
+
+    def authenticate(self, request):
+
+        authorization_header = self.get_authorization_header(request)
+
+        self.check_prefix_exists(authorization_header)
+
+        access_token = self.get_access_token(authorization_header)
+
+        try:
+            payload = self.get_payload(access_token)
+        except jwt.ExpiredSignatureError:
+            raise custom_exception.ExpiredAccessTokenError
+        except Exception as e:
+            raise custom_exception.CommonError(str(e))
+
+        self.validate_jti_token(payload)
+
+        user = self.get_user_from_payload(payload)
+
+        return user, payload
+
+    def get_authorization_header(self, request):
+        authorization_header = request.headers.get(self.authentication_header_name)
+        if not authorization_header:
+            raise custom_exception.AuthorizationHeaderError
+        return authorization_header
+
+    def check_prefix_exists(self, authorization_header):
+        prefix = authorization_header.split(' ')[0]
+        if prefix != self.authentication_header_prefix:
+            raise custom_exception.NotFoundPrefix
+
+    @staticmethod
+    def get_access_token(authorization_header):
+        access_token = authorization_header.split(' ')[1]
+        if access_token:
+            return access_token
+        raise custom_exception.NotFoundAccessToken
+
+
 
