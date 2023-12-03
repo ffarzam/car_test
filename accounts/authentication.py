@@ -84,4 +84,23 @@ class AccessTokenAuthentication(AbstractTokenAuthentication):
         raise custom_exception.NotFoundAccessToken
 
 
+class RefreshTokenAuthentication(AbstractTokenAuthentication):
+
+    def authenticate(self, request):
+        refresh_token = request.data.get("refresh_token")
+
+        try:
+            payload = self.get_payload(refresh_token)
+        except jwt.ExpiredSignatureError:
+            raise custom_exception.ExpiredRefreshTokenError
+        except Exception as e:
+            raise custom_exception.CommonError(str(e))
+
+        self.validate_jti_token(payload)
+
+        user = self.get_user_from_payload(payload)
+
+        return user, payload
+
+
 
